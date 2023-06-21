@@ -88,6 +88,38 @@ Example output:
 
 The above example output only required minor intervention in the first bullet point, and no intervention in the subsequent points. Condensing the sample size while expanding the task expectation has lead to good results for me. 
 
+## Extending Context to 8K
+I'm currently working on a longer write-up about how I achieved this, but for now I will keep it simple. By the way, I have uploaded a second prototype of SuperHOT using the extended context window here: [https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test](https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test). Make sure to follow the instructions when it comes to the monkeypatch.
+
+Now, how was this achieved? The main point is that Transformers should already be capable of operating at any length, and various tests have implied that the suppression of length extrapolation is the actual learned behavior. Intuitively for me, it makes sense -- it is easier to learn the strict relationship between the token and the position than it is to learn the patterns that can be used on any sequence length. I tried several techniques to get the model to extend to longer sequences in finetuning by changing the architecture slightly, but none of them worked consistently. Eventually, I stopped fighting the model's learned behavior; if it doesn't want to go past 2048, or 2400 or 2600, then fine: let's instead interpolate instead of extrapolate. I mainly got this idea from watching Ofir Press' [TED Talk on ALiBi](https://www.youtube.com/watch?v=Pp61ShI9VGc) which I highly recommend. It is a more in-depth explanation of the ALiBi paper. Specifically, at 22:30, he states:
+> If you give it positional embeddings I feel like they overfit to specific positon embeddings [...] I think that what's happening here is that we trained on 1024, and then give it 1025 tokens so now it's seeing "dog" at position 1025 and it explodes because it's like [...] 'What is 1025? I've never seen this before!' [...] One of the pieces of evidence I have about this which we might talk about later is that [...] when you train a 250M parameter model, it actually can extrapolate to 50 tokens more than what it was trained on. [...] On the other hand, when we trained a 1.3B parameter model, it exploded right away. [...] We know that larger models have more capacity [so] they overfit more, so that's one of the pieces of evidence that makes me think that Transformers overfit to specific position embeddings.
+
+While it was just a hunch, if it is true, then there is really nothing that can be done besides feeding it equal compute at the extended sequence length, and at that point you're now stuck at the new length. So let's look at it in reverse -- instead of extrapolate to the new length, can the model perform well as long as the sequence looks like it is within the range of the encodings that it learned? I did a very simple test, by scaling down the frequency window in RoPE by a factor of 0.25. This has the effect of interpolating the encodings with 4 steps in-between, so our position 1 looks like position 0.25, position 40 looks like position 10, and position 2048 looks like position 512. To my surprise, it worked! I was not surprised that it worked actually, but that it worked as well as it did for the simplicity of the change; I didn't even need to finetune the model to see the benefit. All of a sudden, I could go to position 7000 and still remain coherent (which now looks like position 1750). After finetuning the model, the effect became even more pronounced -- retrieving a passcode in the first 50 tokens worked perfectly at token 6000. And all it took was 2 lines of code:
+
+```
+class ScaledRotaryEmbedding(torch.nn.Module):
+    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
+        super().__init__()
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
+        self.register_buffer("inv_freq", inv_freq)
+        
+        max_position_embeddings = 8192
+
+        # Build here to make `torch.jit.trace` work.
+        self.max_seq_len_cached = max_position_embeddings
+        t = torch.arange(
+            self.max_seq_len_cached,
+            device=self.inv_freq.device,
+            dtype=self.inv_freq.dtype,
+        )
+
+        # These two lines:
+        self.scale = 1 / 4
+        t *= self.scale
+```
+
+I should clarify that while it only takes 2 lines to implement, it took me over a month of poring over papers and articles to figure out these two lines are all we need to change. I am still testing other modifications which could improve the effect more, but with this, I was able to train LLaMa 13B, which is pretrained on 2048 tokens, on SuperHOT (which is only 1200 samples) and push it to at least 6K tokens. If you naively train with longer sequence, it just won't work unless you feed it an astronomical amount of data, but with only ~400 samples >4096, the model is able to push beyond 6K. The `scale` field here should be treated as a hyperparameter: you need to perform inference with this change with the same scale used during training. I did not test beyond 1/4 yet, as there is certainly a limit to this effect and I was very happy with pushing it to 6K. I will perform more testing in the meantime and follow-up.
+
 ### Citations
 Never forget the citations
 ```
@@ -157,6 +189,7 @@ Never forget the citations
 - Added 'Citations'  (6/9/23)
 - Added 'Multi-Instruct'  (6/9/23)
 - Added 'Exponential Quality'  (6/9/23)
+- Added 'Extending Context' (6/20/23)
 - Preparing 'Balancing a Dataset is Hard'
 - Preparing 'Recursive Prompt'
 - Preparing 'Heuristic PPO'
