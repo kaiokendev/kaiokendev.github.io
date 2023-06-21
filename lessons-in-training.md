@@ -181,6 +181,22 @@ Never forget the citations
   year={2023},
   volume={abs/2305.17926}
 }
+
+@online{kexuefm-9444,
+  title={Transformer升级之路：8、长度外推性与位置鲁棒性},
+  author={苏剑林},
+  year={2023},
+  month={Jan},
+  url={\url{https://kexue.fm/archives/9444}},
+}
+
+@article{Press2021TrainST,
+  title={Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation},
+  author={Ofir Press and Noah A. Smith and Mike Lewis},
+  journal={ArXiv},
+  year={2021},
+  volume={abs/2108.12409}
+}
 ```
 
 ## Changelog
