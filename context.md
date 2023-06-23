@@ -265,7 +265,7 @@ I found [this blog post](https://kexue.fm/archives/9603), which discusses potent
 > 后者通过随机位置扰动增强对位置信号的鲁棒性，理论上有可能保留全局依赖，但该方法只适用于Encoder模型，不适合于GPT之类的自回归生成模型。
 > Machine Translated: The latter enhances the robustness to position signals through random position perturbation, and it is theoretically possible to retain global dependence, but this method is only applicable to the Encoder model, not suitable for autoregressive generative models such as GPT.
 
-Less than a month later, Ruoss et al. propose random position encoding (which can be applied to RoPE). I hope Su makes a blog post discussing it eventually and providing their thoughts.
+Less than a month later, Ruoss et al. propose random position encoding (which can be applied to RoPE). I hope Su makes a blog post discussing it eventually and providing their thoughts. (As of 6/23/2023, I saw he did indeed make a response to it: [https://kexue.fm/archives/9603](https://kexue.fm/archives/9603))
 
 [Su 2023](https://kexue.fm/archives/9603) proposes a way of using windowed-attention + RoPE, but only on the first `L-1` layers. The `L`th layer uses standard "full" attention and no RoPE (as the model would not have been trained on the extrapolated lengths) and has a scaling factor of `log(n)` on the softmax weights. The results are demonstrated using the Gated Attention Unit from [Hua et al. 2022](https://arxiv.org/abs/2202.10447), but it can be used with any attention variant. Additionally, a window size of 16 is used, and the following caveats are noted:
 > 1. If Window Attention does not add RoPE, the interpolation and extrapolation effects will decrease;

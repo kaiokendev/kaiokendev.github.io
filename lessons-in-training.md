@@ -89,7 +89,7 @@ Example output:
 The above example output only required minor intervention in the first bullet point, and no intervention in the subsequent points. Condensing the sample size while expanding the task expectation has lead to good results for me. 
 
 ## Extending Context to 8K
-EDIT: I have published a longer write-up here: https://kaiokendev.github.io/context I suggest you read it if you're interested to know how it got to this point.
+EDIT: I have published a longer write-up here: [https://kaiokendev.github.io/context](https://kaiokendev.github.io/context) I suggest you read it if you're interested to know how it got to this point.
 
 By the way, I have uploaded a second prototype of SuperHOT using the extended context window here: [https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test](https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test). Make sure to follow the instructions when it comes to the monkeypatch.
 
