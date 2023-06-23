@@ -10,6 +10,8 @@
 <meta name="generator" content="Jekyll v3.9.0" />
 <meta property="og:title" content="Things I’m Learning While Training SuperHOT" />
 <meta property="og:locale" content="en_US" />
+<meta name="description" content="pages" />
+<meta property="og:description" content="pages" />
 <link rel="canonical" href="http://localhost:4000/til" />
 <meta property="og:url" content="http://localhost:4000/til" />
 <meta property="og:site_name" content="kaiokendev.github.io" />
@@ -17,10 +19,10 @@
 <meta name="twitter:card" content="summary" />
 <meta property="twitter:title" content="Things I’m Learning While Training SuperHOT" />
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"WebPage","headline":"Things I’m Learning While Training SuperHOT","url":"http://localhost:4000/til"}</script>
+{"@context":"https://schema.org","@type":"WebPage","description":"pages","headline":"Things I’m Learning While Training SuperHOT","url":"http://localhost:4000/til"}</script>
 <!-- End Jekyll SEO tag -->
 
-    <link rel="stylesheet" href="/assets/css/style.css?v=HEAD">
+    <link rel="stylesheet" href="/assets/css/style.css?v=a8650a2986910e3081866e4cb10d978458a7a0ec">
     <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
 
 <!-- Setup Google Analytics -->
@@ -72,7 +74,7 @@
 <table>
   <thead>
     <tr>
-      <th style="text-align: center"><img src="limaquality.PNG" alt="LIMA Quality 7B" /></th>
+      <th style="text-align: center"><img src="/limaquality.PNG" alt="LIMA Quality 7B" /></th>
     </tr>
   </thead>
   <tbody>
@@ -102,7 +104,7 @@ scale up.</p>
 <table>
   <thead>
     <tr>
-      <th style="text-align: center"><img src="minecraftrecursiveinstruct.PNG" alt="Minecraft Recursive Instruct" /></th>
+      <th style="text-align: center"><img src="/minecraftrecursiveinstruct.PNG" alt="Minecraft Recursive Instruct" /></th>
     </tr>
   </thead>
   <tbody>
@@ -184,6 +186,94 @@ scale up.</p>
 
 <p>The above example output only required minor intervention in the first bullet point, and no intervention in the subsequent points. Condensing the sample size while expanding the task expectation has lead to good results for me.</p>
 
+<h2 id="extending-context-to-8k">Extending Context to 8K</h2>
+<p>I’m currently working on a longer write-up about how I achieved this, but for now I will keep it simple. By the way, I have uploaded a second prototype of SuperHOT using the extended context window here: <a href="https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test">https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test</a>. Make sure to follow the instructions when it comes to the monkeypatch.</p>
+
+<p>Now, how was this achieved? The main point is that Transformers should already be capable of operating at any length, and various tests have implied that the suppression of length extrapolation is the actual learned behavior. Intuitively for me, it makes sense – it is easier to learn the strict relationship between the token and the position than it is to learn the patterns that can be used on any sequence length. I tried several techniques to get the model to extend to longer sequences in finetuning by changing the architecture slightly, but none of them worked consistently. Eventually, I stopped fighting the model’s learned behavior; if it doesn’t want to go past 2048, or 2400 or 2600, then fine: let’s instead interpolate instead of extrapolate. I mainly got this idea from watching Ofir Press’ <a href="https://www.youtube.com/watch?v=Pp61ShI9VGc">TED Talk on ALiBi</a> which I highly recommend. It is a more in-depth explanation of the ALiBi paper. Specifically, at 22:30, he states:</p>
+<blockquote>
+  <p>If you give it positional embeddings I feel like they overfit to specific positon embeddings […] I think that what’s happening here is that we trained on 1024, and then give it 1025 tokens so now it’s seeing “dog” at position 1025 and it explodes because it’s like […] ‘What is 1025? I’ve never seen this before!’ […] One of the pieces of evidence I have about this which we might talk about later is that […] when you train a 250M parameter model, it actually can extrapolate to 50 tokens more than what it was trained on. […] On the other hand, when we trained a 1.3B parameter model, it exploded right away. […] We know that larger models have more capacity [so] they overfit more, so that’s one of the pieces of evidence that makes me think that Transformers overfit to specific position embeddings.</p>
+</blockquote>
+
+<p>While it was just a hunch, if it is true, then there is really nothing that can be done besides feeding it equal compute at the extended sequence length, and at that point you’re now stuck at the new length. So let’s look at it in reverse – instead of extrapolate to the new length, can the model perform well as long as the sequence looks like it is within the range of the encodings that it learned? I did a very simple test, by scaling down the frequency window in RoPE by a factor of 0.25. This has the effect of interpolating the encodings with 4 steps in-between, so our position 1 looks like position 0.25, position 40 looks like position 10, and position 2048 looks like position 512. To my surprise, it worked! I was not surprised that it worked actually, but that it worked as well as it did for the simplicity of the change; I didn’t even need to finetune the model to see the benefit. All of a sudden, I could go to position 7000 and still remain coherent (which now looks like position 1750). After finetuning the model, the effect became even more pronounced – retrieving a passcode in the first 50 tokens worked perfectly at token 6000. And all it took was 2 lines of code:</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>class ScaledRotaryEmbedding(torch.nn.Module):
+    def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
+        super().__init__()
+        inv_freq = 1.0 / (base ** (torch.arange(0, dim, 2).float().to(device) / dim))
+        self.register_buffer("inv_freq", inv_freq)
+        
+        max_position_embeddings = 8192
+
+        # Build here to make `torch.jit.trace` work.
+        self.max_seq_len_cached = max_position_embeddings
+        t = torch.arange(
+            self.max_seq_len_cached,
+            device=self.inv_freq.device,
+            dtype=self.inv_freq.dtype,
+        )
+
+        # These two lines:
+        self.scale = 1 / 4
+        t *= self.scale
+</code></pre></div></div>
+
+<p>I should clarify that while it only takes 2 lines to implement, it took me over a month of poring over papers and articles to figure out these two lines are all we need to change. I am still testing other modifications which could improve the effect more, but with this, I was able to train LLaMa 13B, which is pretrained on 2048 tokens, on SuperHOT (which is only 1200 samples) and push it to at least 6K tokens. If you naively train with longer sequence, it just won’t work unless you feed it an astronomical amount of data, but with only ~400 samples &gt;4096, the model is able to push beyond 6K. The <code class="language-plaintext highlighter-rouge">scale</code> field here should be treated as a hyperparameter: you need to perform inference with this change with the same scale used during training. I did not test beyond 1/4 yet, as there is certainly a limit to this effect and I was very happy with pushing it to 6K. I will perform more testing in the meantime and follow-up.</p>
+
+<h3 id="clarifications">Clarifications</h3>
+<p>This got a lot of attention recently, which is nice, but I also see a lot of miscontrued opinions as to what is happening, so I am making this additional corollary section to clear up some of those. I do not have compute to perform super rigorous testing I would like to do, so I have been relying on the community to do the testing. Sorry for being so burdensome lol 🙏</p>
+
+<h4 id="untraining-vs-uptraining">Untraining vs Uptraining</h4>
+<p>The method provided above is intended to be used to <em>uptrain</em> models with the change. While it is surprising that it works without any uptraining at all, the model will still need to be uptrained to properly attend to the correct positions.</p>
+
+<h4 id="are-we-just-skipping-over-tokens">Are we just skipping over tokens?</h4>
+<p>No, all tokens are seen by the model, but untrained models may not be attending to all tokens properly. The way positions work in rotary position embeddings is that the position is encoded via a rotation matrix that specifies the angle of rotation to allow relative position information to be retrieved. The only thing that is getting stretched when scaling is applied are the rotation frequencies, such that we dilate those frequencies. It is like zooming into a specific part of a waveform, since that is the only part that the model was trained on, and stretching it to fit our desired length.</p>
+
+<h4 id="are-we-actually-using-those-extra-tokens">Are we actually using those extra tokens?</h4>
+<p><a href="https://github.com/turboderp">@turboderp</a> has done a wonderful <a href="https://github.com/ggerganov/llama.cpp/discussions/1965#discussioncomment-6256563">perplexity evaluation</a> of the extended range:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center"><img src="/ppl.png" alt="PPL of scaling" /></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center"><em>SuperHOT 13B uptrained on scaling factor of 0.25, compared to base LLaMa 13B and a test LoRA trained on 6K sequence length with no scaling</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>You can see from the blue line, that the perplexity decreases as the sequence length gets longer. Here, the blue line is SuperHOT, which was uptrained on a scale of 0.25. Recall a similar chart from the ALiBi paper:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center"><img src="/alibi.PNG" alt="PPL of ALiBi compared" /></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center"><em>ALiBi perplexity versus other position schemes</em></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The model is very clearly using those extra tokens and becoming better at token prediction because of it. Unfortunately, I don’t have the compute to inspect the attention heads at such high sequence lengths to compare what they look like. Any volunteers?</p>
+
+<h4 id="what-does-this-do-for-attention">What does this do for attention?</h4>
+<p>Nothing. This is merely a positional re-encoding technique. As a matter of fact, you can achieve a similar result by using block repeated positions – Use the positions of tokens within a certain block window size, i.e. for pre-training sequence length <code class="language-plaintext highlighter-rouge">L</code>, instead of using positions <code class="language-plaintext highlighter-rouge">[1, 2, 3, 4, 5, 6, 7, 8, 9, ... L]</code>, use <code class="language-plaintext highlighter-rouge">[1, 1, 1, 1, 2, 2, 2, 2, ... L, L, L, L]</code>. You should achieve a similar effect without modifying the frequencies, although in this case, the positions are not unique. A similar approach was recently used by DeepMind during pre-training: <a href="https://arxiv.org/abs/2305.16843">https://arxiv.org/abs/2305.16843</a></p>
+
+<h4 id="why-does-it-work-so-well">Why does it work so well?</h4>
+<p>My suspicion is that it is because we leverage the positions the model is already trained on, as opposed to the out-of-distribution positions which are more difficult to learn.Consider that we might only need three assumptions in order for this to work:</p>
+<ol>
+  <li>The model has learned that positions are sequential (i.e. 2 comes after 1 and before 3)</li>
+  <li>The model has learned that positions are continuous (i.e. there will never be a jump or break in the position sequence)</li>
+  <li>The model did not learn the behavior of the position encoding (i.e. to generalize to extended frequencies)</li>
+</ol>
+
+<p>With such behavior, teaching the model of the interpolated positions would be much easier than teaching it the extrapolated ones. “Interpolation via extrapolation”</p>
+
 <h3 id="citations">Citations</h3>
 <p>Never forget the citations</p>
 <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>@inproceedings{yin2018mining,
@@ -244,6 +334,30 @@ scale up.</p>
   year={2023},
   volume={abs/2305.17926}
 }
+
+@online{kexuefm-9444,
+  title={Transformer升级之路：8、长度外推性与位置鲁棒性},
+  author={苏剑林},
+  year={2023},
+  month={Jan},
+  url={\url{https://kexue.fm/archives/9444}},
+}
+
+@article{Press2021TrainST,
+  title={Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation},
+  author={Ofir Press and Noah A. Smith and Mike Lewis},
+  journal={ArXiv},
+  year={2021},
+  volume={abs/2108.12409}
+}
+
+@article{Ruoss2023RandomizedPE,
+  title={Randomized Positional Encodings Boost Length Generalization of Transformers},
+  author={Anian Ruoss and Gr'egoire Del'etang and Tim Genewein and Jordi Grau-Moya and R. Csord{\'a}s and Mehdi Abbana Bennani and Shane Legg and Joel Veness},
+  journal={ArXiv},
+  year={2023},
+  volume={abs/2305.16843}
+}
 </code></pre></div></div>
 
 <h2 id="changelog">Changelog</h2>
@@ -253,6 +367,8 @@ scale up.</p>
   <li>Added ‘Citations’  (6/9/23)</li>
   <li>Added ‘Multi-Instruct’  (6/9/23)</li>
   <li>Added ‘Exponential Quality’  (6/9/23)</li>
+  <li>Added ‘Extending Context’ (6/20/23)</li>
+  <li>Added ‘Clarifications’ (6/22/23)</li>
   <li>Preparing ‘Balancing a Dataset is Hard’</li>
   <li>Preparing ‘Recursive Prompt’</li>
   <li>Preparing ‘Heuristic PPO’</li>

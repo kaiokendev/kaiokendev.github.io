@@ -120,6 +120,41 @@ class ScaledRotaryEmbedding(torch.nn.Module):
 
 I should clarify that while it only takes 2 lines to implement, it took me over a month of poring over papers and articles to figure out these two lines are all we need to change. I am still testing other modifications which could improve the effect more, but with this, I was able to train LLaMa 13B, which is pretrained on 2048 tokens, on SuperHOT (which is only 1200 samples) and push it to at least 6K tokens. If you naively train with longer sequence, it just won't work unless you feed it an astronomical amount of data, but with only ~400 samples >4096, the model is able to push beyond 6K. The `scale` field here should be treated as a hyperparameter: you need to perform inference with this change with the same scale used during training. I did not test beyond 1/4 yet, as there is certainly a limit to this effect and I was very happy with pushing it to 6K. I will perform more testing in the meantime and follow-up.
 
+### Clarifications
+This got a lot of attention recently, which is nice, but I also see a lot of miscontrued opinions as to what is happening, so I am making this additional corollary section to clear up some of those. I do not have compute to perform super rigorous testing I would like to do, so I have been relying on the community to do the testing. Sorry for being so burdensome lol 🙏
+
+#### Untraining vs Uptraining
+The method provided above is intended to be used to *uptrain* models with the change. While it is surprising that it works without any uptraining at all, the model will still need to be uptrained to properly attend to the correct positions.
+
+#### Are we just skipping over tokens?
+No, all tokens are seen by the model, but untrained models may not be attending to all tokens properly. The way positions work in rotary position embeddings is that the position is encoded via a rotation matrix that specifies the angle of rotation to allow relative position information to be retrieved. The only thing that is getting stretched when scaling is applied are the rotation frequencies, such that we dilate those frequencies. It is like zooming into a specific part of a waveform, since that is the only part that the model was trained on, and stretching it to fit our desired length.
+
+#### Are we actually using those extra tokens?
+[@turboderp](https://github.com/turboderp) has done a wonderful [perplexity evaluation](https://github.com/ggerganov/llama.cpp/discussions/1965#discussioncomment-6256563) of the extended range:
+
+| ![PPL of scaling](ppl.png) | 
+|:--:| 
+| *SuperHOT 13B uptrained on scaling factor of 0.25, compared to base LLaMa 13B and a test LoRA trained on 6K sequence length with no scaling* |
+
+You can see from the blue line, that the perplexity decreases as the sequence length gets longer. Here, the blue line is SuperHOT, which was uptrained on a scale of 0.25. Recall a similar chart from the ALiBi paper:
+
+| ![PPL of ALiBi compared](alibi.PNG) | 
+|:--:| 
+| *ALiBi perplexity versus other position schemes* |
+
+The model is very clearly using those extra tokens and becoming better at token prediction because of it. Unfortunately, I don't have the compute to inspect the attention heads at such high sequence lengths to compare what they look like. Any volunteers?
+
+#### What does this do for attention?
+Nothing. This is merely a positional re-encoding technique. As a matter of fact, you can achieve a similar result by using block repeated positions -- Use the positions of tokens within a certain block window size, i.e. for pre-training sequence length `L`, instead of using positions `[1, 2, 3, 4, 5, 6, 7, 8, 9, ... L]`, use `[1, 1, 1, 1, 2, 2, 2, 2, ... L, L, L, L]`. You should achieve a similar effect without modifying the frequencies, although in this case, the positions are not unique. A similar approach was recently used by DeepMind during pre-training: [https://arxiv.org/abs/2305.16843](https://arxiv.org/abs/2305.16843)
+
+#### Why does it work so well?
+My suspicion is that it is because we leverage the positions the model is already trained on, as opposed to the out-of-distribution positions which are more difficult to learn.Consider that we might only need three assumptions in order for this to work:
+1. The model has learned that positions are sequential (i.e. 2 comes after 1 and before 3)
+2. The model has learned that positions are continuous (i.e. there will never be a jump or break in the position sequence)
+3. The model did not learn the behavior of the position encoding (i.e. to generalize to extended frequencies)
+
+With such behavior, teaching the model of the interpolated positions would be much easier than teaching it the extrapolated ones. "Interpolation via extrapolation"
+
 ### Citations
 Never forget the citations
 ```
@@ -197,6 +232,14 @@ Never forget the citations
   year={2021},
   volume={abs/2108.12409}
 }
+
+@article{Ruoss2023RandomizedPE,
+  title={Randomized Positional Encodings Boost Length Generalization of Transformers},
+  author={Anian Ruoss and Gr'egoire Del'etang and Tim Genewein and Jordi Grau-Moya and R. Csord{\'a}s and Mehdi Abbana Bennani and Shane Legg and Joel Veness},
+  journal={ArXiv},
+  year={2023},
+  volume={abs/2305.16843}
+}
 ```
 
 ## Changelog
@@ -206,6 +249,7 @@ Never forget the citations
 - Added 'Multi-Instruct'  (6/9/23)
 - Added 'Exponential Quality'  (6/9/23)
 - Added 'Extending Context' (6/20/23)
+- Added 'Clarifications' (6/22/23)
 - Preparing 'Balancing a Dataset is Hard'
 - Preparing 'Recursive Prompt'
 - Preparing 'Heuristic PPO'
