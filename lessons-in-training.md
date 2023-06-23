@@ -153,7 +153,7 @@ My suspicion is that it is because we leverage the positions the model is alread
 2. The model has learned that positions are continuous (i.e. there will never be a jump or break in the position sequence)
 3. The model did not learn the behavior of the position encoding (i.e. to generalize to extended frequencies)
 
-With such behavior, teaching the model of the interpolated positions would be much easier than teaching it the extrapolated ones. "Interpolation via extrapolation"
+With such behavior, teaching the model of the interpolated positions would be much easier than teaching it the extrapolated ones. "Extrapolation via interpolation"
 
 ### Citations
 Never forget the citations
