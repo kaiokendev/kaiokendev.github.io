@@ -22,7 +22,7 @@
 {"@context":"https://schema.org","@type":"WebPage","description":"pages","headline":"Things I’m Learning While Training SuperHOT","url":"http://localhost:4000/til"}</script>
 <!-- End Jekyll SEO tag -->
 
-    <link rel="stylesheet" href="/assets/css/style.css?v=f7f799158de945f3115329beb1a9d4d08bb6c078">
+    <link rel="stylesheet" href="/assets/css/style.css?v=d0a1ba1720e376a681547b45b84afbf6c8c04ae2">
     <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
 
 <!-- Setup Google Analytics -->
@@ -262,6 +262,21 @@ scale up.</p>
 </table>
 
 <p>The model is very clearly using those extra tokens and becoming better at token prediction because of it. Unfortunately, I don’t have the compute to inspect the attention heads at such high sequence lengths to compare what they look like. Any volunteers?</p>
+
+<p>I have also done my own perplexity evaluation, confirming that the long context is working as expected, and with a scale equal to the new finetuning length (0.5 for 4096), the model outperforms the base model on perplexity while also enabling long context. You can download the raw data here: <a href="/ppl2.json">ppl.json</a></p>
+
+<table>
+  <thead>
+    <tr>
+      <th style="text-align: center"><img src="/ppl_mine.png" alt="PPL of scaling" /></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="text-align: center"><em>SuperHOT 13B trained with with scaling vs no scaling vs base LLaMa 13B. Various scaling factors are using during inference across several sequence lengths. The red line at the very bottom is the LoRA trained with 0.25 scale and 4096 sequences with 0.5 scale applied during inference. It outperforms the base model.</em></td>
+    </tr>
+  </tbody>
+</table>
 
 <h4 id="what-does-this-do-for-attention">What does this do for attention?</h4>
 <p>Nothing. This is merely a positional re-encoding technique. As a matter of fact, you can achieve a similar result by using block repeated positions – Use the positions of tokens within a certain block window size, i.e. for pre-training sequence length <code class="language-plaintext highlighter-rouge">L</code>, instead of using positions <code class="language-plaintext highlighter-rouge">[1, 2, 3, 4, 5, 6, 7, 8, 9, ... L]</code>, use <code class="language-plaintext highlighter-rouge">[1, 1, 1, 1, 2, 2, 2, 2, ... L, L, L, L]</code>. You should achieve a similar effect without modifying the frequencies, although in this case, the positions are not unique. A similar approach was recently used by DeepMind during pre-training: <a href="https://arxiv.org/abs/2305.16843">https://arxiv.org/abs/2305.16843</a></p>

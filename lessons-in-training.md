@@ -146,6 +146,13 @@ You can see from the blue line, that the perplexity decreases as the sequence le
 
 The model is very clearly using those extra tokens and becoming better at token prediction because of it. Unfortunately, I don't have the compute to inspect the attention heads at such high sequence lengths to compare what they look like. Any volunteers?
 
+I have also done my own perplexity evaluation, confirming that the long context is working as expected, and with a scale equal to the new finetuning length (0.5 for 4096), the model outperforms the base model on perplexity while also enabling long context. You can download the raw data here: [ppl.json](/ppl2.json)
+
+| ![PPL of scaling](ppl_mine.png) | 
+|:--:| 
+| *SuperHOT 13B trained with with scaling vs no scaling vs base LLaMa 13B. Various scaling factors are using during inference across several sequence lengths. The red line at the very bottom is the LoRA trained with 0.25 scale and 4096 sequences with 0.5 scale applied during inference. It outperforms the base model.* |
+
+
 #### What does this do for attention?
 Nothing. This is merely a positional re-encoding technique. As a matter of fact, you can achieve a similar result by using block repeated positions -- Use the positions of tokens within a certain block window size, i.e. for pre-training sequence length `L`, instead of using positions `[1, 2, 3, 4, 5, 6, 7, 8, 9, ... L]`, use `[1, 1, 1, 1, 2, 2, 2, 2, ... L, L, L, L]`. You should achieve a similar effect without modifying the frequencies, although in this case, the positions are not unique. A similar approach was recently used by DeepMind during pre-training: [https://arxiv.org/abs/2305.16843](https://arxiv.org/abs/2305.16843)
 
