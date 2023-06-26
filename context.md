@@ -137,6 +137,8 @@ def shifted_positions(n=3072, min=6144, max=8192, offset=3072, device="cpu"):
 ```
 It turns out this also failed to extrapolate for me despite the loss converging. Again, I might have broken my training code somehow, since it feels like it should work.
 
+EDIT (6/25/2023): [Kiyono et al. 2021](https://aclanthology.org/2021.emnlp-main.266/) proposed a similar scheme for absolute position embedding and show that it outperforms APE on long sequences.
+
 ### Log-n Scaling
 
 I tried with log-n scaling. After implementing `log(n)` scaling, the length generalization improved dramatically, but it still was not perfect. At least, this seems to imply the score destablization contributes greatly. The following is an attempted story continuation with 2800 tokens of context on a LLaMa 13B LoRA (rank 16) trained on ~1000 samples (~500 3072-token samples). The model generated ~+320 tokens:
@@ -293,3 +295,165 @@ _*Sandwich released on the same day as XPos!_
 _† I meant *my* context, not the model's; that part was actually easy in comparison_
 
 _**Call me a Su shill if you want, idc :)_
+
+## Citations
+Updated: 6/25/2023
+
+I did not add an explicit citation section, but I will summarize the influential and orthogonal papers that I have stumbled on and provide citations for them here. Thanks to all the amazing researchers, as without all the disparate insights, this wouldn't have been possible :)
+
+If you have related work that I did not mention here, feel free to contact me at kaiokendev1@gmail.com with a link to the paper and it's relevance and I will be happy to add it. I could not possibly have read every paper on the topics, and the solution was only influenced by a small selection, so bear with me.
+
+### The Problem of Length Generalization
+This section cites papers revolving around the problem of length generalization and potential factors that could lead to Transformer models not being able to length extrapolate well.
+
+[Anil et al. 2022](https://arxiv.org/abs/2207.04901) demonstrated that several fine-tuning approaches fail to resolve common length generalization pathologies. They perform a comprehensive study and determine several ways in which this problem manifests.
+```
+@article{Anil2022ExploringLG,
+  title={Exploring Length Generalization in Large Language Models},
+  author={Cem Anil and Yuhuai Wu and Anders Andreassen and Aitor Lewkowycz and Vedant Misra and Vinay Venkatesh Ramasesh and Ambrose Slone and Guy Gur-Ari and Ethan Dyer and Behnam Neyshabur},
+  journal={ArXiv},
+  year={2022},
+  volume={abs/2207.04901}
+}
+```
+
+[Chi et al. 2022](https://arxiv.org/abs/2212.10356) analyze ALiBi and find a link to windowed attention, highlighting benefits attained by constricting the receptive field of the model. They employ these learnings to create SANDWICH.
+```
+@inproceedings{Chi2022DissectingTL,
+  title={Dissecting Transformer Length Extrapolation via the Lens of Receptive Field Analysis},
+  author={Ta-Chung Chi and Ting-Han Fan and Alex Rudnicky and Peter J. Ramadge},
+  year={2022}
+}
+```
+
+[Tao et al. 2023](https://arxiv.org/abs/2305.04859) find that rear position embeddings are updated more infrequently than front position embeddings. They propose adding random padding to various patches of the sequence to improve length generalization for BERT models.
+```
+@article{Tao2023AFE,
+  title={A Frustratingly Easy Improvement for Position Embeddings via Random Padding},
+  author={Mingxu Tao and Yansong Feng and Dongyan Zhao},
+  journal={ArXiv},
+  year={2023},
+  volume={abs/2305.04859}
+}
+```
+
+[Press et al. 2021](https://arxiv.org/abs/2108.12409) suggest that Transformer models may overfit to specific position embeddings seen during training, even with RoPE. They propose ALiBi in which they add fixed slopes to the QK dot-product to add a decaying token bias which helps long-range sequences and extrapolation.
+```
+@article{Press2021TrainST,
+  title={Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation},
+  author={Ofir Press and Noah A. Smith and Mike Lewis},
+  journal={ArXiv},
+  year={2021},
+  volume={abs/2108.12409}
+}
+```
+
+[Liu et al. 2023](https://arxiv.org/abs/2306.00946) observe that large language models exhibit catastrophic glitches in long range language modeling tasks. They perform ablations across several thousand model architectures. One potential cause they list is minor fluctuations in low-level attention head logits.
+```
+@article{Liu2023ExposingAG,
+  title={Exposing Attention Glitches with Flip-Flop Language Modeling},
+  author={Bingbin Liu and Jordan T. Ash and Surbhi Goel and Akshay Krishnamurthy and Cyril Zhang},
+  journal={ArXiv},
+  year={2023},
+  volume={abs/2306.00946}
+}
+```
+
+### Length Generalization Solutions
+The following section cites papers that propose solutions to length generalization
+
+[Chi et al. 2022](https://arxiv.org/abs/2212.10356) has been cited [in the section above](#the-problem-of-length-generalization)
+
+[Tao et al. 2023](https://arxiv.org/abs/2305.04859) has been cited [in the section above](#the-problem-of-length-generalization)
+
+[Press et al. 2021](https://arxiv.org/abs/2108.12409) has been cited [in the section above](#the-problem-of-length-generalization)
+
+[Bueno et al. 2022](https://arxiv.org/abs/2208.11445) showcase that adding markup tokens can help models keep track of their chain of thought over long sequences.
+```
+@article{Bueno2022InducedNL,
+  title={Induced Natural Language Rationales and Interleaved Markup Tokens Enable Extrapolation in Large Language Models},
+  author={Mirelle Candida Bueno and Carlos Gemmel and Jeffrey Stephen Dalton and Roberto de Alencar Lotufo and Rodrigo Nogueira},
+  journal={ArXiv},
+  year={2022},
+  volume={abs/2208.11445}
+}
+```
+
+[Mohtashami et al. 2023](https://arxiv.org/abs/2305.16300) employ landmark tokens, a modified grouped softmax attention, and positional jumping to fine-tune a LLaMa model to 32k tokens.
+```
+@article{Mohtashami2023LandmarkAR,
+  title={Landmark Attention: Random-Access Infinite Context Length for Transformers},
+  author={Amirkeivan Mohtashami and Martin Jaggi},
+  journal={ArXiv},
+  year={2023},
+  volume={abs/2305.16300}
+}
+```
+
+#### Permutated Positional Embeddings
+This section cites papers that leverage the technique of shifting or permuting the position embeddings in some way to achieve length extrapolation
+
+[Ruoss et al. 2023](https://arxiv.org/abs/2305.16843) propose randomized positional encodings which re-assigns position IDs to a random sequential sequence (that is not necessarily contiguous) greater than the actual sequence length in order to simulate a longer training sequence.
+```
+@article{Ruoss2023RandomizedPE,
+  title={Randomized Positional Encodings Boost Length Generalization of Transformers},
+  author={Anian Ruoss and Gr'egoire Del'etang and Tim Genewein and Jordi Grau-Moya and R. Csord{\'a}s and Mehdi Abbana Bennani and Shane Legg and Joel Veness},
+  journal={ArXiv},
+  year={2023},
+  volume={abs/2305.16843}
+}
+```
+
+[Likhomanenko et al. 2021](https://arxiv.org/abs/2106.03143) also propose CAPE (continuous augmented positional embeddings) for applying a random global offset and scale as well local offset to absolute positional embeddings to teach the model the relative information.
+```
+@inproceedings{Likhomanenko2021CAPEER,
+  title={CAPE: Encoding Relative Positions with Continuous Augmented Positional Embeddings},
+  author={Tatiana Likhomanenko and Qiantong Xu and Ronan Collobert and Gabriel Synnaeve and Alexey Rogozhnikov},
+  booktitle={Neural Information Processing Systems},
+  year={2021}
+}
+```
+
+[Kiyono et al. 2021](https://aclanthology.org/2021.emnlp-main.266/) proposed SHAPE (Shifted Absolute Position Embedding) which shifts the positions randomly during training to prevent over-fitting on the positions and encourage the learning of the relative information.
+```
+@inproceedings{kiyono-etal-2021-shape,
+    title = "{SHAPE}: {S}hifted Absolute Position Embedding for Transformers",
+    author = "Kiyono, Shun  and
+      Kobayashi, Sosuke  and
+      Suzuki, Jun  and
+      Inui, Kentaro",
+    booktitle = "Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing",
+    month = nov,
+    year = "2021",
+    address = "Online and Punta Cana, Dominican Republic",
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2021.emnlp-main.266",
+    doi = "10.18653/v1/2021.emnlp-main.266",
+    pages = "3309--3321",
+    abstract = "Position representation is crucial for building position-aware representations in Transformers. Existing position representations suffer from a lack of generalization to test data with unseen lengths or high computational cost. We investigate shifted absolute position embedding (SHAPE) to address both issues. The basic idea of SHAPE is to achieve shift invariance, which is a key property of recent successful position representations, by randomly shifting absolute positions during training. We demonstrate that SHAPE is empirically comparable to its counterpart while being simpler and faster.",
+}
+```
+
+#### Attention Calculations
+The following papers revolve around the impact of changing the attention calculation on length extrapolation
+
+[Chiang and Cholak 2022](https://arxiv.org/abs/2202.12172) mention that scaling the softmax attention logits by `log(n)`, where `n` is the sequence length, they achieve better extrapolation on the FIRST task.
+```
+@inproceedings{Chiang2022OvercomingAT,
+  title={Overcoming a Theoretical Limitation of Self-Attention},
+  author={David Chiang and Peter A. Cholak},
+  booktitle={Annual Meeting of the Association for Computational Linguistics},
+  year={2022}
+}
+```
+
+[Shen et al. 2023](https://arxiv.org/abs/2302.06461) propose replacing softmax with ReLU to fix a saturation problem and provide better variance when there are many key-values
+```
+@article{Shen2023ASO,
+  title={A Study on ReLU and Softmax in Transformer},
+  author={Kai Shen and Junliang Guo and Xuejiao Tan and Siliang Tang and Rui Wang and Jiang Bian},
+  journal={ArXiv},
+  year={2023},
+  volume={abs/2302.06461}
+}
+```

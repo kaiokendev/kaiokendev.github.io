@@ -22,7 +22,7 @@
 {"@context":"https://schema.org","@type":"WebPage","description":"pages","headline":"Things I’m Learning While Training SuperHOT","url":"http://localhost:4000/til"}</script>
 <!-- End Jekyll SEO tag -->
 
-    <link rel="stylesheet" href="/assets/css/style.css?v=106e038e3f9d961a9c61e449f63b4eddd3c9207c">
+    <link rel="stylesheet" href="/assets/css/style.css?v=f7f799158de945f3115329beb1a9d4d08bb6c078">
     <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
 
 <!-- Setup Google Analytics -->
@@ -187,7 +187,9 @@ scale up.</p>
 <p>The above example output only required minor intervention in the first bullet point, and no intervention in the subsequent points. Condensing the sample size while expanding the task expectation has lead to good results for me.</p>
 
 <h2 id="extending-context-to-8k">Extending Context to 8K</h2>
-<p>I’m currently working on a longer write-up about how I achieved this, but for now I will keep it simple. By the way, I have uploaded a second prototype of SuperHOT using the extended context window here: <a href="https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test">https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test</a>. Make sure to follow the instructions when it comes to the monkeypatch.</p>
+<p>EDIT: I have published a longer write-up here: <a href="https://kaiokendev.github.io/context">https://kaiokendev.github.io/context</a> I suggest you read it if you’re interested to know how it got to this point.</p>
+
+<p>By the way, I have uploaded a second prototype of SuperHOT using the extended context window here: <a href="https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test">https://huggingface.co/kaiokendev/superhot-13b-8k-no-rlhf-test</a>. Make sure to follow the instructions when it comes to the monkeypatch.</p>
 
 <p>Now, how was this achieved? The main point is that Transformers should already be capable of operating at any length, and various tests have implied that the suppression of length extrapolation is the actual learned behavior. Intuitively for me, it makes sense – it is easier to learn the strict relationship between the token and the position than it is to learn the patterns that can be used on any sequence length. I tried several techniques to get the model to extend to longer sequences in finetuning by changing the architecture slightly, but none of them worked consistently. Eventually, I stopped fighting the model’s learned behavior; if it doesn’t want to go past 2048, or 2400 or 2600, then fine: let’s instead interpolate instead of extrapolate. I mainly got this idea from watching Ofir Press’ <a href="https://www.youtube.com/watch?v=Pp61ShI9VGc">TED Talk on ALiBi</a> which I highly recommend. It is a more in-depth explanation of the ALiBi paper. Specifically, at 22:30, he states:</p>
 <blockquote>
