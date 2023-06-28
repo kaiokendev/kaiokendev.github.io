@@ -22,7 +22,7 @@
 {"@context":"https://schema.org","@type":"WebPage","description":"pages","headline":"Extending Context is Hard","url":"http://localhost:4000/context"}</script>
 <!-- End Jekyll SEO tag -->
 
-    <link rel="stylesheet" href="/assets/css/style.css?v=d0a1ba1720e376a681547b45b84afbf6c8c04ae2">
+    <link rel="stylesheet" href="/assets/css/style.css?v=63cc61f883967427d267c022bf14bf5fe1d5d026">
     <!-- start custom head snippets, customize with your own _includes/head-custom.html file -->
 
 <!-- Setup Google Analytics -->
@@ -47,6 +47,13 @@
 <p>I was working on this write up while I was working through methods to finetune the pre-trained model for longer sequence length. In this case, the pre-trained model is LLaMa, with a pre-training sequence length of 2048. Naively fine-tuning the model on long sequences never seemed to work, but I felt it must be possible, so I stubbornly pushed through it. Now, there is a way to extend context with just 1 line of code, and it is getting a lot of attention. Unfortunately, there is also a lot of misconceptions on what is happening, why it works, and why it is so simple. I see a lot of people calling it a “hack” or a “trick” simply because it is only 1 line of code. To that end, I decided to publish the write up even though it is incomplete, to hopefully give my brain dump of what I was thinking through and clarify what is happening.</p>
 
 <p>In other words, expect mistakes lol</p>
+
+<h3 id="concurrent-work">Concurrent work</h3>
+
+<p>EDIT: 6/27/2023
+I was just notified that Meta themselves have concurrently discovered the same interpolation property via <a href="https://arxiv.org/abs/2306.15595">Chen et al. 2023</a>. I heavily recommend reading their paper; a lot of their findings parallel my own, but they provide extensive experimentation and additional reasoning behind why it works. Yes, I’m equally surprised it was being discovered in two different places at the same time!</p>
+
+<p>The paper: <a href="https://arxiv.org/pdf/2306.15595.pdf">https://arxiv.org/pdf/2306.15595.pdf</a></p>
 
 <h2 id="the-problem">The Problem</h2>
 <p>So why is it so hard for the model to generalize its learnings to extended sequence length? Let’s look at a few papers that also observed this behavior:</p>

@@ -9,6 +9,13 @@ I was working on this write up while I was working through methods to finetune t
 
 In other words, expect mistakes lol
 
+### Concurrent work
+
+EDIT: 6/27/2023
+I was just notified that Meta themselves have concurrently discovered the same interpolation property via [Chen et al. 2023](https://arxiv.org/abs/2306.15595). I heavily recommend reading their paper; a lot of their findings parallel my own, but they provide extensive experimentation and additional reasoning behind why it works. Yes, I'm equally surprised it was being discovered in two different places at the same time!
+
+The paper: [https://arxiv.org/pdf/2306.15595.pdf](https://arxiv.org/pdf/2306.15595.pdf)
+
 ## The Problem
 So why is it so hard for the model to generalize its learnings to extended sequence length? Let's look at a few papers that also observed this behavior:
 - [Anil et al. 2022](https://arxiv.org/abs/2207.04901) observe that length extrapolation fails in large part due to the presence of "distracting tokens" in the input during the PARITY task. I want to highlight the below from their Appendix F:
