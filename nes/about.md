@@ -1,12 +1,12 @@
 ---
 layout: page
-title: "About the Interactive NES"
+title: "About the Visual NES"
 permalink: /nes/about
 ---
 
-# About the Interactive NES
+# About the Visual NES
 
-| ![The Interactive NES](internes.PNG) | 
+| ![The Visual NES](internes.PNG) | 
 |:--:| 
 | You can play with it [here](/nes) |
 
@@ -22,7 +22,15 @@ I recently [posted](https://x.com/kaiokendev1/status/1903948356420055137) about 
 
 So, I headed over to Claude and we began banging out some code. [About 4 hours later](https://x.com/kaiokendev1/status/1904033484953264290), I had a (mostly) working PPU, CPU, Memory controller, and Input. [4 hours after that](https://x.com/kaiokendev1/status/1904080838515360238), I had sprites and backgrounds rendering, and games actually playing. [Later that day](https://x.com/kaiokendev1/status/1904203225365913988), I got Donkey Kong working properly, and [about a day later](https://x.com/kaiokendev1/status/1904759027596226951), most games were tested and working and a full visualization suite was added. 
 
-If you want to try it, [click here](/nes). It runs entirely in your browser, and I squashed all of the memory leaks I could find. I mostly biased for accuracy. I couldn't figure out a good way to properly do audio before making this blog post, though, so apologies in advance for butchering some classic sounds. It does not support mobile controls, and it may break on some [tougher-to-emulate games such as Battletoads](https://www.nesdev.org/wiki/Tricky-to-emulate_games). It didn't run Dragon Quest III or IV (I think these use some opcodes I haven't implemented, but I'm not yet sure), and Super Mario Bros. 3 is glitched (I need to do another pass at Mappers 3 and 4).
+If you want to try it, [click here](/nes). It runs entirely in your browser, and I squashed all of the memory leaks I could find. I mostly biased for accuracy. I couldn't figure out a good way to properly do audio before making this blog post, though, so apologies in advance for butchering some classic sounds. It does not support mobile controls, and it may break on some [tougher-to-emulate games such as Battletoads](https://www.nesdev.org/wiki/Tricky-to-emulate_games).
+
+As of 3/28/205:
+- It should support all Mapper 0, 1, 2 and 3 games apart from the 512KB ones (DQIII & DQIV, FF1&2 dual cart...)
+- It can load Mapper 4 games, but you may run into some glitches (you can play Megaman 5, but Ninja Gaiden II crashes when you jump, SMB3 has a bad HUD...)
+- Audio should work fine although may not sound as crisp
+- Visualizers for Sprite Tables, Nametables, and the rendering hierarchy
+- Visualizers for PPU, CPU, APU, Memory and Controller states
+- Run 1 Frame, Run 5 Frames, and change how many cycles are run per frame
 
 # The Setup
 
