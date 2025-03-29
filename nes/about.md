@@ -26,8 +26,9 @@ If you want to try it, [click here](/nes). It runs entirely in your browser, and
 
 As of 3/28/205:
 - It should support all Mapper 0, 1, 2 and 3 games apart from the 512KB ones (DQIII & DQIV, FF1&2 dual cart...)
-- It can load Mapper 4 games, but you may run into some glitches (you can play Megaman 5, but Ninja Gaiden II crashes when you jump, SMB3 has a bad HUD...)
-- Audio should work fine although may not sound as crisp
+- It can load Mapper 4 games, but you may run into some glitches (SMB3 levels don't load correctly...)
+    - You may also want to disable the Pattern and Nametables as there's rapid flickering in some of these games
+- Full audio support
 - Visualizers for Sprite Tables, Nametables, and the rendering hierarchy
 - Visualizers for PPU, CPU, APU, Memory and Controller states
 - Run 1 Frame, Run 5 Frames, and change how many cycles are run per frame
